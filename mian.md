@@ -36,7 +36,7 @@ git checkout xxxx(newbranch)  切换分支
 
 
 
-**执行栈**
+#### 执行栈
 
 又称*调用栈*，LIFO数据结构栈(后进先出规则)
 
@@ -49,7 +49,7 @@ git checkout xxxx(newbranch)  切换分支
 
 
 
-**创建执行上下文**
+##### **创建执行上下文**
 
 执行上下文有两个阶段：**1) 创建阶段** 和 **2) 执行阶段**。
 
@@ -123,6 +123,66 @@ checkscope()();
 原因JavaScript采用的是词法作用域，函数的作用域基于函数创建的位置
 
 
+
+##### 执行上下文 
+
+**执行上下文**可以看成是做事情前的**准备工作**，其中可以执行的代码有 **全局代码**，**函数代码**，**Eval代码**。
+
+而JavaScript引擎为了管理众多的执行上下文创建了一个**执行上下文栈(ECStack)**。
+
+
+
+###### **执行上下文栈**
+
+执行上下文栈的进出规则：
+
+1. js初始化时会向执行栈中压入**全局执行上下文(globalContext)**，当执行栈被清空前永远都有**全局执行上下文**在最底部
+2. 当执行一个函数时会创建一个**函数执行上下文**，并压入执行栈。当函数执行完时**函数执行上下文**会从栈中弹出。
+
+```javascript
+function fun3() {
+    console.log('fun3')
+}
+function fun2() {
+    fun3();
+}
+function fun1() {
+    fun2();
+}
+fun1();
+```
+
+执行栈压入顺序
+
+```javascript
+// 伪代码
+
+// fun1()
+ECStack.push(<fun1> functionContext);
+
+// fun1中竟然调用了fun2，还要创建fun2的执行上下文
+ECStack.push(<fun2> functionContext);
+
+// 擦，fun2还调用了fun3！
+ECStack.push(<fun3> functionContext);
+
+// fun3执行完毕
+ECStack.pop();
+
+// fun2执行完毕
+ECStack.pop();
+
+// fun1执行完毕
+ECStack.pop();
+
+// javascript接着执行下面的代码，但是ECStack底层永远有个globalContex
+```
+
+
+
+###### 活动对象(OA对象)
+
+在函数上下文中，通常用活动对象来表示变量对象，而函数的`变量对象`在`javascript`环境中是不可以访问的，只有当进入了`执行上下文`中该上下文的变量才会被激活，而被激活的`变量对象`就是`活动对象`，也才能被访问。
 
 
 
