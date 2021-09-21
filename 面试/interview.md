@@ -1,100 +1,3 @@
-## Webpack
-
-```javascript
-npm i -D  // npm install --save-dev  开发环境
-npm i -S // npm install --save  生产环境
-```
-
-
-
-### webpack配置
-
-#### build
-
-`http_env` 为参数，`npm run build2`运行后会被赋值在node全局配置`process.env`中
-
-```javascript
-// package.json
-scripts: {
-    "serve": "vue-cli-service serve",
-    "build": "webapck --config ./webpack.config.js",
-    "lint": "vue-cli-service lint",
-    "build2": "cross-env  http_env=qa node ./build/webpack.prod2.config.js"
-}
-```
-
-```javascript
-// webpack.prod2.config.js
-const ENV = process.env.http_env
-console.log("2:", ENV);
-```
-
-
-
-#### module
-
-###### rules
-
-
-
-> *css-loader:解析css文件中的@import依赖关系*
-
-> *style-loader：将webpack处理之后的css内容插入到HTML的HEAD标签里*
-
-`style-loader` ` css-loader` 
-
-
-
-> autofixer是postcss的功能插件，主要是给css中的一些属性添加-webkit-这种前缀做兼容的
->
-> postcss-loader则是webpack的loader组件，主要作用是webpack在读取css模块的时候调用postcss和postcss的插件处理css内容的。所以会有postcss-loader配置options的过程实际上是为postcss配置需要的插件
-
-`autoprefixer`  `postcss-loader` 
-
-
-
-`less`  ` less-loader`
-
-`file-loader`
-
-`bable-loader` ` @bable/preset-env ` `@bable/core`  // 将es6,7,8 转换为es5
-
-`@bable/polyfill` 转换 promise, proxy, Set, Maps等新api
-
-`vue-loader` ` vue-template-compiler` ` vue-style-loader`  解析vue
-
-`webpack-dev-server` 热更新
-
-```javascript
-module.exports = {
-  // ...省略其他配置
-  devServer:{
-    port:3000,
-    hot:true,
-    contentBase:'../dist'
-  },
-  plugins:[
-    new Webpack.HotModuleReplacementPlugin()
-  ]
-}
-```
-
-
-
-
-
-`npm i -S vue`
-
-
-
-
-
-
-
-
-
-
-
 ## Chome版本
 
 + 金丝雀
@@ -158,114 +61,6 @@ Expires返回绝对时间GMT格式字符串，如果客户端本地时间超过�
 
 
 
-
-
-### 宏任务和微任务
-
-> ES6 规范中，microtask 称为 `jobs`，macrotask 称为 `task`
-> 宏任务是由宿主发起的，而微任务由JavaScript自身发起。
-
-|                    | 宏任务（macrotask）                                          | 微任务（microtask）                                          |
-| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 谁发起的           | 宿主（Node、浏览器）                                         | JS引擎                                                       |
-| 具体事件           | 1. script (可以理解为外层同步代码) <br />2. setTimeout/setInterval <br />3. UI rendering/UI事件 <br />4. postMessage，MessageChannel <br />5. setImmediate，I/O（Node.js） | 1. Promise<br/>2. MutaionObserver<br/>3. Object.observe（已废弃；`Proxy` 对象替代）<br/>4. process.nextTick（Node.js） |
-| 谁先运行           | 后运行                                                       | 先运行                                                       |
-| 会触发新一轮Tick吗 | 会                                                           | 不会                                                         |
-
-
-
-
-
-1. script (可以理解为外层同步代码)
-   \2. setTimeout/setInterval
-   \3. UI rendering/UI事件
-   \4. postMessage，MessageChannel
-   \5. setImmediate，I/O（Node.js） 1. Promise
-   \2. MutaionObserver
-   \3. Object.observe（已废弃；`Proxy` 对象替代）
-   \4. process.nextTick（Node.js）  谁先运行 后运行 先运行  会触发新一轮Tick吗 会 不会
-
-
-
-```javascript
-new Promise((resolve,reject)=>{      
-  console.log("promise1")
-  resolve()
-}).then(()=>{                    --> then1      
-  console.log("then1-1")
-  new Promise((resolve,reject)=>{    
-      console.log("promise2")
-      resolve()
-  }).then(()=>{                 --> then3
-      console.log("then2-1")
-  }).then(()=>{                 --> then4     
-      console.log("then2-2")
-  })
-
-  console.log(22222)               
-}).then(()=>{                    --> then2      
-  console.log("then1-2")
-})
-
-
-```
-
-
-
-第一轮
-
-微任务队列：[then1]
-
-首先打印p1，没啥问题，然后进入then1微任务，打印then1-1 ，然后发现个new Promise,立即执行里面的console，打印P2，
-
-继续往下，然后发现then3微任务 ，加入到队列尾部，然后是一连串链式调用then，因为要等then3微任务执行完才能返回新promise才能后续then，所以先不处理这些链式调用的then。然后再打印222。此时then1微任务执行完成，并返回新的promise，此时主进程（执行栈）检测到then2，并将其加入到微任务队列中。
-
-
-
-第二轮
-
-微任务队列：[then1(已执行), then3, then2]
-
-执行then3时又检测到微任务then4，加入队列
-
-第三轮
-
-微任务队列：[then1(已执行), then3(已执行), then2, then4]
-
-【over】后面同理，依次执行完
-
-
-
-
-
-## Github
-
-```js
-git remote add origin http://github.com/xxx/xxx.git  关联远程仓库
-git add .   /  git add xxx.file  
-git commit -m "xxx"
-git pull origin master
-git push -u origin master
-git log
-git status
-git branch 查看分支	
-git checkout xxxx(newbranch)  切换分支
-```
-
-
-
-### **github冲突解决**
-
-+ 文件修改冲突
-
-编辑文件，合代码，**Commit merge**提交合并
-
-+ 文件删除引起的冲突(有人编辑了被另一个人删除的文件)
-
-
-
-
-
 ## JavaScript
 
 ### 执行上下文/作用域链/闭包
@@ -308,6 +103,8 @@ git checkout xxxx(newbranch)  切换分支
    > https://blog.csdn.net/qq_31594099/article/details/83003516
 
 简单的用两个例子来理词法环境
+
+
 
 ![](https://raw.githubusercontent.com/chuerFeng/pictureBed/master/img/20210910172809.png)
 
@@ -427,4 +224,86 @@ ECStack.pop();
 
 
 
+
+### 宏任务和微任务
+
+> ES6 规范中，microtask 称为 `jobs`，macrotask 称为 `task`
+> 宏任务是由宿主发起的，而微任务由JavaScript自身发起。
+
+|                    | 宏任务（macrotask）                                          | 微任务（microtask）                                          |
+| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 谁发起的           | 宿主（Node、浏览器）                                         | JS引擎                                                       |
+| 具体事件           | 1. script (可以理解为外层同步代码) <br />2. setTimeout/setInterval <br />3. UI rendering/UI事件 <br />4. postMessage，MessageChannel <br />5. setImmediate，I/O（Node.js） | 1. Promise<br/>2. MutaionObserver<br/>3. Object.observe（已废弃；`Proxy` 对象替代）<br/>4. process.nextTick（Node.js） |
+| 谁先运行           | 后运行                                                       | 先运行                                                       |
+| 会触发新一轮Tick吗 | 会                                                           | 不会                                                         |
+
+
+
+
+
+1. script (可以理解为外层同步代码)
+   \2. setTimeout/setInterval
+   \3. UI rendering/UI事件
+   \4. postMessage，MessageChannel
+   \5. setImmediate，I/O（Node.js） 1. Promise
+   \2. MutaionObserver
+   \3. Object.observe（已废弃；`Proxy` 对象替代）
+   \4. process.nextTick（Node.js）  谁先运行 后运行 先运行  会触发新一轮Tick吗 会 不会
+
+
+
+![image-20210921163540301](https://raw.githubusercontent.com/img/image-20210921163540301.png)
+
+
+
+```javascript
+new Promise((resolve,reject)=>{      
+  console.log("promise1")
+  resolve()
+}).then(()=>{                    --> then1      
+  console.log("then1-1")
+  new Promise((resolve,reject)=>{    
+      console.log("promise2")
+      resolve()
+  }).then(()=>{                 --> then3
+      console.log("then2-1")
+  }).then(()=>{                 --> then4     
+      console.log("then2-2")
+  })
+
+  console.log(22222)               
+}).then(()=>{                    --> then2      
+  console.log("then1-2")
+})
+
+
+```
+
+
+
+![](https://raw.githubusercontent.com/img/e9644cef63cdf199c4f1861afaa529f2.jpg)
+
+
+
+第一轮
+
+微任务队列：[then1]
+
+首先打印p1，没啥问题，然后进入then1微任务，打印then1-1 ，然后发现个new Promise,立即执行里面的console，打印P2，
+
+继续往下，然后发现then3微任务 ，加入到队列尾部，然后是一连串链式调用then，因为要等then3微任务执行完才能返回新promise才能后续then，所以先不处理这些链式调用的then。然后再打印222。此时then1微任务执行完成，并返回新的promise，此时主进程（执行栈）检测到then2，并将其加入到微任务队列中。
+
+
+
+第二轮
+
+微任务队列：[then1(已执行), then3, then2]
+
+执行then3时又检测到微任务then4，加入队列
+
+第三轮
+
+微任务队列：[then1(已执行), then3(已执行), then2, then4]
+
+【over】后面同理，依次执行完
 
