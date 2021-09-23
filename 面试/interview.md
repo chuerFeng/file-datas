@@ -98,8 +98,6 @@ ECMA规范明确了一点：函数声明必须带有标示符（Identifier）（
 
 
 
-
-
 表达式和声明存在着十分微妙的差别，首先，函数声明会在任何表达式被解析和求值之前先被解析和求值，即使你的声明在代码的最后一行，它也会在同作用域内第一个表达式之前被解析/求值，参考如下例子，函数fn是在alert之后声明的，但是在alert执行的时候，fn已经有定义了：
 
 ```
@@ -109,6 +107,40 @@ ECMA规范明确了一点：函数声明必须带有标示符（Identifier）（
     return 'Hello world!';
   }
 ```
+
+
+
+
+
+
+
+**关于函数提升，只有函数声明才会提升，函数表达式是不会进行函数提升的**。
+
+```javascript
+// 函数声明可以提升
+foo(); // foo
+function foo() {
+    console.log('foo');
+}
+// 函数表达式不会提升
+foo(); // TypeError: undefined is not a function
+var foo = function() {
+    console.log('foo');
+}
+```
+
+上述第一个例子是函数声明，可以提升；第二个例子是函数表达式，不会进行函数提升，但是 `var foo` 会进行变量提升，所以当调用 foo 的时候，foo 的值是 undefined，导致抛出 TypeError 异常。
+
+其实可以从 JS 引擎的执行原理来理解声明提升的过程。JS 引擎在分析代码的时候，分为两个阶段：编译阶段和执行阶段。（注意，这里的编译和 C 语言中的将高级语言编译为机器代码的编译不是同一个概念，这里的编译可以理解为博主所说的「准备工作」的一部分）
+
+- **编译阶段**：这个阶段只会处理声明语句，会将所有声明的变量添加为当前执行上下文变量对象（VO）的属性。如果是变量声明，其值暂且初始化为 undefined，如果是函数声明，它会在堆上开辟内存，并将函数定义放到堆上，函数变量只保存这指向函数定义的地址。
+- **执行阶段**：编译结束后，JS 引擎会再次扫描代码，这个阶段主要的任务是根据执行语句，更新变量对象等。
+
+之所以会发生声明提升，就是因为 JS 引擎在编译阶段只会处理声明语句。
+
+
+
+![](https://raw.githubusercontent.com/chuerFeng/pictureBed/master/img/20210923153107.png)
 
 
 
@@ -163,13 +195,188 @@ JavaScript 采用`词法作用域(lexical scoping)`，也就是`静态作用域`
 
 ##### 作用域链
 
+[JavaScript深入之作用域链]: https://github.com/mqyqingfeng/Blog/issues/6
+
 当查找变量的时候，会先从当前上下文的变量对象中查找，如果没有找到，就会从父级(词法层面上的父级)执行上下文的变量对象中查找，一直找到全局上下文的变量对象，也就是全局对象。这样由多个执行上下文的变量对象构成的链表就叫做作用域链。
 
-
-
-#####  [[scope]]
+######  [[scope]]
 
 函数的作用域之所以在定义时就决定了是因为   函数有一个`[[scope]]`内部属性，当函数创建时会在该属性中保存所有父变量对象，就是所有父对象的层级链，但是注意：[[scope]] 并不代表完整的作用域链！
+
+举个例子：
+
+```
+function foo() {
+    function bar() {
+        ...
+    }
+}
+```
+
+函数创建时，各自的[[scope]]为：
+
+```
+foo.[[scope]] = [
+  globalContext.VO
+];
+
+bar.[[scope]] = [
+    fooContext.AO,
+    globalContext.VO
+];
+```
+
+当函数激活时，进入函数上下文，创建 VO/AO 后，就会**将活动对象添加到作用链的前端**。
+
+这时候执行上下文的作用域链，我们命名为 Scope：
+
+```
+Scope = [AO].concat([[Scope]]);
+```
+
+
+
+
+
+以下面的例子为例，结合着之前讲的变量对象和执行上下文栈，我们来总结一下函数执行上下文中作用域链和变量对象的创建过程：
+
+```
+var scope = "global scope";
+function checkscope(){
+    var scope2 = 'local scope';
+    return scope2;
+}
+checkscope();
+```
+
+执行过程如下：
+
+1.checkscope 函数被创建，保存作用域链到 内部属性[[scope]]
+
+```
+checkscope.[[scope]] = [
+    globalContext.VO
+];
+```
+
+2.执行 checkscope 函数，创建 checkscope 函数执行上下文，checkscope 函数执行上下文被压入执行上下文栈
+
+```
+ECStack = [
+    checkscopeContext,
+    globalContext
+];
+```
+
+3.checkscope 函数并不立刻执行，开始做准备工作，第一步：复制函数[[scope]]属性创建作用域链
+
+```
+checkscopeContext = {
+    Scope: checkscope.[[scope]],
+}
+```
+
+4.第二步：用 arguments 创建活动对象，随后初始化活动对象，加入形参、函数声明、变量声明
+
+```
+checkscopeContext = {
+    AO: {
+        arguments: {
+            length: 0
+        },
+        scope2: undefined
+    }，
+    Scope: checkscope.[[scope]],
+}
+```
+
+5.第三步：将活动对象压入 checkscope 作用域链顶端
+
+```
+checkscopeContext = {
+    AO: {
+        arguments: {
+            length: 0
+        },
+        scope2: undefined
+    },
+    Scope: [AO, [[Scope]]]
+}
+```
+
+6.准备工作做完，开始执行函数，随着函数的执行，修改 AO 的属性值
+
+```
+checkscopeContext = {
+    AO: {
+        arguments: {
+            length: 0
+        },
+        scope2: 'local scope'
+    },
+    Scope: [AO, [[Scope]]]
+}
+```
+
+7.查找到 scope2 的值，返回后函数执行完毕，函数上下文从执行上下文栈中弹出
+
+```
+ECStack = [
+    globalContext
+];
+```
+
+
+
+**而 *第2步创建函数时保存到[[scope]]的作用域链* 和 *第3步执行前准备工作复制[[scope]]属性创建的作用域链* 不是同一个作用域链**
+
+> checkscope函数创建的时候，保存的是根据词法所生成的作用域链，checkscope执行的时候，会复制这个作用域链，作为自己作用域链的初始化，然后根据环境生成变量对象，然后将这个变量对象，添加到这个复制的作用域链，这才完整的构建了自己的作用域链。至于为什么会有两个作用域链，是因为在函数创建的时候并不能确定最终的作用域的样子，为什么会采用复制的方式而不是直接修改呢？应该是因为函数会被调用很多次吧。
+
+
+
+
+
+#### **变量对象(VO对象)**
+
+[JavaScript深入之变量对象]: https://github.com/mqyqingfeng/Blog/issues/5
+
+变量对象(Variable object，VO)是与执行上下文相关的数据作用域，存储了在上下文中定义的变量和函数声明， VO对象只是一个抽象概念，由于VO所在的执行上下文环境不一样初始的数据也不一样。
+
+
+
+##### 在全局上下文中
+
+在客户端中，全局对象就是 Window 对象，而全局对象是由Object构造函数实例化的一个对象。
+
+在实例化过程中会给全局对象赋值了一些预定义函数和属性，如 `Math`, `Date`
+
+全局上下文中的`变量对象`其实就是`全局对象`
+
+
+
+##### 在函数上下文中
+
+在函数上下文中，通常用活动对象(activation object, OA对象)来表示变量对象，也可以看成活动对象是变量对象的特例，因为它包含了变量对象的的所有属性和变量定义，函数声明。
+
+###### 活动对象(OA对象)
+
+在进入函数上下文前， 函数上下文中的VO是不能直接访问的（通常用`活动对象(OA对象)`来表示`变量对象`），只有当进入了`执行上下文`后该上下文的变量才会被激活，而被激活后的`变量对象`就是`活动对象`，该对象的属性也才能被访问。
+
+简而言之，活动对象就是在进入函数上下文时被激活创建的，这个对象通过函数的arguments属性初始化，arguments属性的值是Arguments对象，Arguments对象是活动对象的一个属性，该属性包括如下属性
+
+1. callee  -- 指向当前函数的引用
+2. length -- 真正传递的参数个数
+3. properties-indexes (字符串类型的整数) 属性的值就是函数的参数值(按参数列表从左到右排列)。 properties-indexes内部元素的个数等于arguments.length。properties-indexes 的值和实际传递进来的参数之间是共享的。
+
+
+
+###### VO对象和OA对象的关系
+
+未进入执行阶段之前，变量对象(VO)中的属性都不能访问！但是进入执行阶段之后，变量对象(VO)转变为了活动对象(AO)，里面的属性都能被访问了，然后开始进行执行阶段的操作。
+
+它们其实都是同一个对象，只是处于执行上下文的不同生命周期。
+
+
 
 
 
@@ -305,7 +512,7 @@ VO对象包含下列属性
 
 3. 所有的变量声明
 
-   由名称和对应值(函数对象)组成一个变量对象，如果变量名称跟已经声明的形式参数或函数相同，则变量声明不会干扰已经存在的这类属性。
+   由名称和对应值(函数对象)组成一个变量对象，如果变量名称跟已经声明的形式参数或函数相同，则**变量声明不会干扰已经存在的这类属性**。
 
 
 
@@ -335,6 +542,63 @@ AO(test) = {
 ```
 
 注意，AO里并不包含函数“x”。这是因为“x” 是一个函数表达式(FunctionExpression, 缩写为 FE) 而不是函数声明，函数表达式不会影响VO。 不管怎样，函数“_e” 同样也是函数表达式，但是就像我们下面将看到的那样，因为它分配给了变量 “e”，所以它可以通过名称“e”来访问。 函数声明FunctionDeclaration与函数表达式FunctionExpression 的不同。
+
+
+
+##### 栗子
+
+1.第一题
+
+```
+function foo() {
+    console.log(a);
+    a = 1;
+}
+
+foo(); // ???
+
+function bar() {
+    a = 1;
+    console.log(a);
+}
+bar(); // ???
+```
+
+第一段会报错：`Uncaught ReferenceError: a is not defined`。
+
+第二段会打印：`1`。
+
+这是因为函数中的 "a" 并没有通过 var 关键字声明，所有不会被存放在 AO 中。
+
+第一段执行 console 的时候， AO 的值是：
+
+```
+AO = {
+    arguments: {
+        length: 0
+    }
+}
+```
+
+没有 a 的值，然后就会到全局去找，全局也没有，所以会报错。
+
+当第二段执行 console 的时候，全局对象已经被赋予了 a 属性，这时候就可以从全局找到 a 的值，所以会打印 1。
+
+2.第二题
+
+```
+console.log(foo);
+
+function foo(){
+    console.log("foo");
+}
+var foo = 1;
+
+```
+
+会打印函数，而不是 undefined 。
+
+这是因为在进入执行上下文时，首先会处理**函数声明**(函数表达式则不会优先处理)，其次会处理变量声明，如果变量名称跟已经声明的形式参数或函数相同，则变量声明不会干扰已经存在的这类属性。
 
 
 
@@ -392,52 +656,53 @@ ECStack.pop();
 
 
 
+##### 栗子
+
+```javascript
+var scope = "global scope";
+function checkscope(){
+    var scope = "local scope";
+    function f(){
+        return scope;
+    }
+    return f();
+}
+checkscope();
+```
+
+```javascript
+var scope = "global scope";
+function checkscope(){
+    var scope = "local scope";
+    function f(){
+        return scope;
+    }
+    return f;
+}
+checkscope()();
+```
+
+两个的结果都是一样的，不一样的是执行上下文栈的变化不一样
+
+模拟第一段代码：
+
+```
+ECStack.push(<checkscope> functionContext);
+ECStack.push(<f> functionContext);
+ECStack.pop();
+ECStack.pop();
+```
+
+模拟第二段代码：
+
+```
+ECStack.push(<checkscope> functionContext);
+ECStack.pop();
+ECStack.push(<f> functionContext);
+ECStack.pop();
+```
 
 
-1. ~~当浏览器执行JavaScript时，js引擎会创建一个**全局执行上下文**并把该上下文推入调用栈。~~
-2. ~~当调用一个函数first()时，js引擎会为该函数创建一个**函数执行上下文**并推入调用栈。~~
-3. ~~当在first()函数内部调用另一个函数second()时，js引擎创建一个新的**函数执行上下文**并推入调用栈。~~
-4. ~~当second()执行完成后调用栈将**second的上下文**弹出，控制流程到达下一个执行上下文，即**first函数执行上下文**~~
-5. ~~first执行完毕时，到达**全局执行上下文**~~
-6. ~~所有代码执行完毕时，**全局执行上下文**被移出调用栈，调用栈空~~
-
-
-
-
-
-
-
-#### **变量对象**
-
-[JavaScript深入之变量对象]: https://github.com/mqyqingfeng/Blog/issues/5
-
-变量对象(Variable object，VO)是与执行上下文相关的数据作用域，存储了在上下文中定义的变量和函数声明， VO对象只是一个抽象概念，由于VO所在的执行上下文环境不一样初始的数据也不一样。
-
-
-
-##### 在全局上下文中
-
-在客户端中，全局对象就是 Window 对象，而全局对象是由Object构造函数实例化的一个对象。
-
-在实例化过程中会给全局对象赋值了一些预定义函数和属性，如 `Math`, `Date`
-
-全局上下文中的`变量对象`其实就是`全局对象`
-
-
-
-##### 在函数上下文中
-
-在函数上下文中，通常用活动对象(activation object, OA对象)来表示变量对象，也可以看成活动对象是变量对象的特例，因为它包含了变量对象的的所有属性和变量定义，函数声明。
-
-###### 活动对象(OA对象)
-
-在进入函数上下文前， 函数上下文中的VO是不能直接访问的（通常用`活动对象(OA对象)`来表示`变量对象`），只有当进入了`执行上下文`后该上下文的变量才会被激活，而被激活后的`变量对象`就是`活动对象`，该对象的属性也才能被访问。
-
-简而言之，活动对象就是在进入函数上下文时被激活创建的，这个对象通过函数的arguments属性初始化，arguments属性的值是Arguments对象，Arguments对象是活动对象的一个属性，该属性包括如下属性
-
-1. callee  -- 指向当前函数的引用
-2. length -- 真正传递的参数个数
-3. properties-indexes (字符串类型的整数) 属性的值就是函数的参数值(按参数列表从左到右排列)。 properties-indexes内部元素的个数等于arguments.length。properties-indexes 的值和实际传递进来的参数之间是共享的。
 
 
 
