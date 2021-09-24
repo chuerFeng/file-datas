@@ -240,7 +240,7 @@ Scope = [AO].concat([[Scope]]);
 
 以下面的例子为例，结合着之前讲的变量对象和执行上下文栈，我们来总结一下函数执行上下文中作用域链和变量对象的创建过程：
 
-```
+```javascript
 var scope = "global scope";
 function checkscope(){
     var scope2 = 'local scope';
@@ -253,7 +253,7 @@ checkscope();
 
 1.checkscope 函数被创建，保存作用域链到 内部属性[[scope]]
 
-```
+```javascript
 checkscope.[[scope]] = [
     globalContext.VO
 ];
@@ -261,7 +261,7 @@ checkscope.[[scope]] = [
 
 2.执行 checkscope 函数，创建 checkscope 函数执行上下文，checkscope 函数执行上下文被压入执行上下文栈
 
-```
+```javascript
 ECStack = [
     checkscopeContext,
     globalContext
@@ -270,7 +270,7 @@ ECStack = [
 
 3.checkscope 函数并不立刻执行，开始做准备工作，第一步：复制函数[[scope]]属性创建作用域链
 
-```
+```javascript
 checkscopeContext = {
     Scope: checkscope.[[scope]],
 }
@@ -278,7 +278,7 @@ checkscopeContext = {
 
 4.第二步：用 arguments 创建活动对象，随后初始化活动对象，加入形参、函数声明、变量声明
 
-```
+```javascript
 checkscopeContext = {
     AO: {
         arguments: {
@@ -292,7 +292,7 @@ checkscopeContext = {
 
 5.第三步：将活动对象压入 checkscope 作用域链顶端
 
-```
+```javascript
 checkscopeContext = {
     AO: {
         arguments: {
@@ -306,7 +306,7 @@ checkscopeContext = {
 
 6.准备工作做完，开始执行函数，随着函数的执行，修改 AO 的属性值
 
-```
+```javascript
 checkscopeContext = {
     AO: {
         arguments: {
@@ -320,7 +320,7 @@ checkscopeContext = {
 
 7.查找到 scope2 的值，返回后函数执行完毕，函数上下文从执行上下文栈中弹出
 
-```
+```javascript
 ECStack = [
     globalContext
 ];
@@ -331,6 +331,82 @@ ECStack = [
 **而 *第2步创建函数时保存到[[scope]]的作用域链* 和 *第3步执行前准备工作复制[[scope]]属性创建的作用域链* 不是同一个作用域链**
 
 > checkscope函数创建的时候，保存的是根据词法所生成的作用域链，checkscope执行的时候，会复制这个作用域链，作为自己作用域链的初始化，然后根据环境生成变量对象，然后将这个变量对象，添加到这个复制的作用域链，这才完整的构建了自己的作用域链。至于为什么会有两个作用域链，是因为在函数创建的时候并不能确定最终的作用域的样子，为什么会采用复制的方式而不是直接修改呢？应该是因为函数会被调用很多次吧。
+
+
+
+
+
+##### 栗子
+
+1.第一题
+
+```
+function foo() {
+    console.log(a);
+    a = 1;
+}
+
+foo(); // ???
+
+function bar() {
+    a = 1;
+    console.log(a);
+}
+bar(); // ???
+```
+
+第一段会报错：`Uncaught ReferenceError: a is not defined`。
+
+第二段会打印：`1`。
+
+这是因为函数中的 "a" 并没有通过 var 关键字声明，所有不会被存放在 AO 中。
+
+第一段执行 console 的时候， AO 的值是：
+
+```
+AO = {
+    arguments: {
+        length: 0
+    }
+}
+```
+
+没有 a 的值，然后就会到全局去找，全局也没有，所以会报错。
+
+当第二段执行 console 的时候，全局对象已经被赋予了 a 属性，这时候就可以从全局找到 a 的值，所以会打印 1。
+
+2.第二题
+
+```
+console.log(foo);
+
+function foo(){
+    console.log("foo");
+}
+
+var foo = 1;
+```
+
+会打印函数，而不是 undefined 。
+
+这是因为在进入执行上下文时，首先会处理函数声明，其次会处理变量声明，如果变量名称跟已经声明的形式参数或函数相同，则变量声明不会干扰已经存在的这类属性。
+
+
+
+3.第三题
+
+```
+var foo = 1;
+console.log(foo);
+function foo(){
+    console.log("foo");
+};
+打印结果就是“1”；
+```
+
+> 是因为使用var定义变量，声明的变量会提升到作用域顶部，但是赋值操作并不会提升；使用function声明函数，整个声明语句都会得到提升。所以声明提升提升的是对函数或变量的声明，而不是赋值！
+
+[function和Var声明变量之间的关系]: https://blog.csdn.net/lancecool/article/details/116783119
 
 
 
